@@ -1,0 +1,46 @@
+{
+  "name": "hop2it",
+  "version": "1.0.0",
+  "description": "Local domain proxy server with configurable routing",
+  "main": "dist/cli.js",
+  "bin": {
+    "hop2it": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r templates dist/",
+    "start": "node dist/cli.js start",
+    "dev": "ts-node cli.ts start",
+    "clean": "rm -rf dist",
+    "postinstall": "npm run build",
+    "proxy": "node dist/cli.js",
+    "config": "node dist/cli.js config",
+    "logs": "node dist/cli.js logs"
+  },
+  "keywords": [
+    "proxy",
+    "server",
+    "local",
+    "development",
+    "routing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "http-proxy": "^1.18.1",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.21",
+    "@types/http-proxy": "^1.17.14",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
