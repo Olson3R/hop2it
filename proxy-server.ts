@@ -166,7 +166,8 @@ export class ProxyServer {
         const method = Colors.httpMethod(req.method || 'GET')(req.method?.padEnd(6) || 'GET   ');
         const arrow = Colors.arrow();
         const target = Colors.target()(route.target);
-        await this.logger.info(`${method} ${req.url} ${arrow} ${target}`, trace.id, domain);
+        const routeMatchTime = Date.now() - trace.timestamp;
+        await this.logger.info(`${method} ${req.url} ${arrow} ${target} (route: ${routeMatchTime}ms)`, trace.id, domain);
       }
 
       await this.proxyRequest(req, res, route, trace, originalUrl);
@@ -294,6 +295,7 @@ export class ProxyServer {
 
         proxy.on('proxyRes', async (proxyRes: any, proxyReq: any, proxyResRes: any) => {
           const statusCode = proxyRes.statusCode || 200;
+          const proxyTime = Date.now() - trace.timestamp;
           
           // Capture response headers
           if (shouldCaptureResponseHeaders) {
@@ -324,13 +326,19 @@ export class ProxyServer {
             this.traceManager.finishTrace(trace.id, statusCode, undefined, responseHeaders, responseBody);
             
             if (this.config.global.tracing) {
+              const totalDuration = Date.now() - trace.timestamp;
               await this.logger.logRequest({
                 ...trace,
                 statusCode,
-                duration: Date.now() - trace.timestamp,
+                duration: totalDuration,
                 responseHeaders,
                 responseBody
               }, route, this.config.global);
+              
+              // Log performance breakdown if request took >500ms
+              if (totalDuration > 500) {
+                await this.logger.warn(`Slow request: ${totalDuration}ms total (proxy: ${proxyTime}ms)`, trace.id, trace.domain);
+              }
             }
             
             resolve();

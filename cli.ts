@@ -112,8 +112,11 @@ program
         enabled: true
       };
       
-      // Add path options if provided
+      // Construct route key - use domain:path format if path is specified
+      let routeKey = domain;
       if (options.path) {
+        routeKey = `${domain}:${options.path}`;
+        // Also store path in route config for path replacement functionality
         routeConfig.path = options.path;
       }
       
@@ -127,15 +130,20 @@ program
       if (options.logResponseHeaders) routeConfig.logResponseHeaders = true;
       if (options.logResponseBody) routeConfig.logResponseBody = true;
       
-      configManager.getConfig().routes[domain] = routeConfig;
+      configManager.getConfig().routes[routeKey] = routeConfig;
       await configManager.save();
       
-      console.log(`${Colors.success()('Route added:')} ${Colors.domain(domain)(domain)} ${Colors.arrow()} ${Colors.target()(target)}`);
+      console.log(`${Colors.success()('Route added:')} ${Colors.domain(routeKey)(routeKey)} ${Colors.arrow()} ${Colors.target()(target)}`);
       
-      // Show path configuration if provided
+      // Show path configuration if provided (for the old path config method)
       if (routeConfig.path) {
         const pathReplace = routeConfig.pathReplace !== undefined ? ` → "${routeConfig.pathReplace}"` : '';
         console.log(`  ${Colors.highlight()('Path:')} ${routeConfig.path}${pathReplace}`);
+      }
+      
+      // Show path replacement if provided for domain:path routes
+      if (options.path && routeConfig.pathReplace !== undefined) {
+        console.log(`  ${Colors.highlight()('Path replacement:')} ${options.path} → "${routeConfig.pathReplace}"`);
       }
       
       // Show enabled logging options

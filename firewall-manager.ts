@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { homedir } from 'os';
 import * as os from 'os';
 import { ConfigManager } from './config-manager';
 
@@ -135,8 +136,8 @@ export class FirewallManager {
 
     private updateHostsFile(): void {
         try {
-            // Load proxy config to get configured domains
-            const configPath = './proxy-config.json';
+            // Use the same config path resolution as ConfigManager
+            const configPath = path.join(homedir(), '.hop2it', 'proxy-config.json');
             if (!fs.existsSync(configPath)) {
                 console.log('No proxy config found, skipping hosts file update.');
                 return;
@@ -150,6 +151,8 @@ export class FirewallManager {
                 console.log('No domains configured, skipping hosts file update.');
                 return;
             }
+            
+            
 
             // Read current hosts file
             const hostsPath = '/etc/hosts';
@@ -179,22 +182,38 @@ export class FirewallManager {
             // Add new hop2it entries
             filteredLines.push('');
             filteredLines.push(`${this.hostsMarker} START`);
-            domains.forEach(domain => {
+            
+            // Extract unique domains from route keys
+            const uniqueDomains = new Set<string>();
+            domains.forEach(routeKey => {
+                // Extract domain from route key (handle domain:path format)
+                let domain = routeKey;
+                if (routeKey.includes(':')) {
+                    domain = routeKey.split(':')[0];
+                }
+                
                 // Skip wildcard domains - they can't be resolved directly
                 if (!domain.startsWith('*')) {
-                    filteredLines.push(`127.0.0.1 ${domain}`);
+                    uniqueDomains.add(domain);
                 }
             });
+            
+            // Add hosts entries for unique domains  
+            const domainsToAdd = Array.from(uniqueDomains).sort();
+            domainsToAdd.forEach(domain => {
+                filteredLines.push(`127.0.0.1 ${domain}`);
+            });
+            
             filteredLines.push(`${this.hostsMarker} END`);
             
             // Write back to hosts file
             fs.writeFileSync(hostsPath, filteredLines.join('\n'));
             
-            const addedCount = domains.filter(d => !d.startsWith('*')).length;
-            console.log(`Added ${addedCount} domain(s) to /etc/hosts`);
+            console.log(`Added ${domainsToAdd.length} domain(s) to /etc/hosts`);
             
         } catch (error) {
             console.error('Failed to update hosts file:', error);
+            console.error('Error details:', error instanceof Error ? error.message : String(error));
             // Don't throw - firewall can still work with manual DNS setup
         }
     }
