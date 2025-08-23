@@ -37,7 +37,7 @@ const ws = new WebSocket('ws://localhost:8089/logs?format=json&history=true');
 
 **Pretty Format:**
 ```
-14:30:15.234 INFO  [a1b2c3d4] [api.local] GET /users → http://localhost:3001 200 45ms
+14:30:15.234 INFO  [a1b2c3d4] [api.local] GET /users → http://127.0.0.1:3001 200 45ms
 ```
 
 **JSON Format:**
@@ -47,7 +47,7 @@ const ws = new WebSocket('ws://localhost:8089/logs?format=json&history=true');
   "level": "info",
   "traceId": "a1b2c3d4", 
   "domain": "api.local",
-  "message": "GET /users → http://localhost:3001 200 45ms"
+  "message": "GET /users → http://127.0.0.1:3001 200 45ms"
 }
 ```
 
@@ -166,7 +166,7 @@ type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
 {
   "routes": {
     "api.local": {
-      "target": "http://localhost:3001"
+      "target": "http://127.0.0.1:3001"
     }
   },
   "global": {
@@ -182,7 +182,7 @@ type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
 {
   "routes": {
     "api.local": {
-      "target": "http://localhost:3001",
+      "target": "http://127.0.0.1:3001",
       "logging": "debug",
       "enabled": true,
       "logRequestHeaders": true,
@@ -190,12 +190,12 @@ type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
       "logResponseBody": true
     },
     "app.local": {
-      "target": "http://localhost:3000",
+      "target": "http://127.0.0.1:3000",
       "logging": "info",
       "enabled": true
     },
     "*.dev.local": {
-      "target": "http://localhost:8000",
+      "target": "http://127.0.0.1:8000",
       "logging": "warn",
       "enabled": true
     }
@@ -222,7 +222,7 @@ type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
 {
   "routes": {
     "api.prod.local": {
-      "target": "http://localhost:4000",
+      "target": "http://127.0.0.1:4000",
       "logging": "warn",
       "enabled": true,
       "logRequestHeaders": false,
@@ -231,7 +231,7 @@ type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
       "logResponseBody": false
     },
     "health.prod.local": {
-      "target": "http://localhost:4001",
+      "target": "http://127.0.0.1:4001",
       "logging": "error",
       "enabled": true
     }
@@ -293,7 +293,7 @@ interface RequestTrace {
   "level": "info",
   "traceId": "a1b2c3d4",
   "domain": "api.local",
-  "message": "POST   /users → http://localhost:3001 201 78ms"
+  "message": "POST   /users → http://127.0.0.1:3001 201 78ms"
 }
 ```
 
@@ -307,7 +307,7 @@ interface RequestTrace {
   "message": "Proxy error",
   "data": {
     "error": "ECONNREFUSED",
-    "target": "http://localhost:3001"
+    "target": "http://127.0.0.1:3001"
   }
 }
 ```
@@ -378,17 +378,17 @@ The following headers are automatically masked in logs:
 ```json
 {
   "routes": {
-    "api.local": {"target": "http://localhost:3001"},
-    "*.local": {"target": "http://localhost:8000"},
-    "*.dev.local": {"target": "http://localhost:9000"}
+    "api.local": {"target": "http://127.0.0.1:3001"},
+    "*.local": {"target": "http://127.0.0.1:8000"},
+    "*.dev.local": {"target": "http://127.0.0.1:9000"}
   }
 }
 ```
 
 **Resolution order:**
-- `api.local` → `http://localhost:3001` (exact match)
-- `app.local` → `http://localhost:8000` (wildcard match)
-- `api.dev.local` → `http://localhost:9000` (more specific wildcard)
+- `api.local` → `http://127.0.0.1:3001` (exact match)
+- `app.local` → `http://127.0.0.1:8000` (wildcard match)
+- `api.dev.local` → `http://127.0.0.1:9000` (more specific wildcard)
 
 ## 🔄 File Rotation API
 
@@ -467,7 +467,7 @@ const sensitivePatterns = [
 **Prometheus Metrics (Conceptual):**
 ```javascript
 // Future feature - metrics endpoint
-GET http://localhost:8089/metrics
+GET http://127.0.0.1:8089/metrics
 
 // Example metrics
 proxy_requests_total{domain="api.local",method="GET",status="200"} 145
@@ -491,10 +491,10 @@ proxy-server logs --format json | \
 **Proxy Health Check:**
 ```bash
 # Check if proxy is responding
-curl -f http://localhost:8080/ && echo "Proxy OK" || echo "Proxy Down"
+curl -f http://127.0.0.1:8080/ && echo "Proxy OK" || echo "Proxy Down"
 
 # Check specific route health
-curl -f -H "Host: api.local" http://localhost:8080/health
+curl -f -H "Host: api.local" http://127.0.0.1:8080/health
 ```
 
 **Service Discovery:**

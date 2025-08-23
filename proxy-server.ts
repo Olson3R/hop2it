@@ -1,4 +1,5 @@
-import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { createServer, IncomingMessage, ServerResponse, Agent } from 'http';
+import { Agent as HttpsAgent } from 'https';
 import httpProxy from 'http-proxy';
 import { Transform } from 'stream';
 import { URL } from 'url';
@@ -17,6 +18,8 @@ export class ProxyServer {
   private traceManager: TraceManager;
   private logStreamer: LogStreamer;
   private config: ProxyConfig;
+  private httpAgent: Agent;
+  private httpsAgent: HttpsAgent;
 
   constructor(configPath?: string, logFile?: string) {
     this.configManager = new ConfigManager(configPath);
@@ -31,7 +34,88 @@ export class ProxyServer {
     // Connect logger to streamer
     this.logger.setStreamer(this.logStreamer);
 
+    // Initialize HTTP agents with keep-alive for connection pooling
+    this.httpAgent = new Agent({
+      keepAlive: true,
+      maxSockets: 100,
+      maxFreeSockets: 10,
+      timeout: 30000
+    });
+    
+    this.httpsAgent = new HttpsAgent({
+      keepAlive: true,
+      maxSockets: 100,
+      maxFreeSockets: 10,
+      timeout: 30000
+    });
+
+    // Add error handlers to prevent unhandled socket errors
+    this.setupAgentErrorHandlers();
+
     this.setupConfigListeners();
+  }
+
+  private setupAgentErrorHandlers(): void {
+    // Handle socket errors from HTTP agent
+    this.httpAgent.on('error', (error: any) => {
+      if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+        this.logger.warn('HTTP agent connection error', 'SYSTEM', undefined, {
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        this.logger.error('HTTP agent error', 'SYSTEM', undefined, {
+          error: error.message,
+          code: error.code
+        });
+      }
+    });
+
+    // Handle socket errors from HTTPS agent
+    this.httpsAgent.on('error', (error: any) => {
+      if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+        this.logger.warn('HTTPS agent connection error', 'SYSTEM', undefined, {
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        this.logger.error('HTTPS agent error', 'SYSTEM', undefined, {
+          error: error.message,
+          code: error.code
+        });
+      }
+    });
+  }
+
+  private createProxy(target: string, isWebSocket = false): httpProxy {
+    const targetUrl = new URL(target);
+    const isHttps = targetUrl.protocol === 'https:';
+    
+    const proxy = httpProxy.createProxyServer({
+      target,
+      ws: isWebSocket,
+      changeOrigin: true,
+      secure: false,
+      timeout: 30000,
+      xfwd: true,
+      // Only use connection pooling agents for HTTP requests, not WebSockets
+      agent: isWebSocket ? undefined : (isHttps ? this.httpsAgent : this.httpAgent)
+    });
+
+    // Add global error handler to prevent crashes
+    proxy.on('error', (error: any) => {
+      // This is a fallback handler - specific handlers should catch most errors
+      if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+        // Log but don't crash - these are common network issues
+        this.logger.warn('Network connection issue', 'SYSTEM', undefined, {
+          error: error.message,
+          code: error.code,
+          target
+        });
+      }
+    });
+
+    return proxy;
   }
 
   private setupConfigListeners(): void {
@@ -41,10 +125,13 @@ export class ProxyServer {
       this.updateDomainLogging();
     });
 
-    this.configManager.on('config-changed', (config: ProxyConfig) => {
+    this.configManager.on('config-changed', async (config: ProxyConfig) => {
       this.config = config;
       this.logger.setGlobalLevel(config.global.logging);
       this.updateDomainLogging();
+      
+      // HTTP agents handle connection pooling automatically
+      
       this.logger.info(`${Colors.success()('Configuration reloaded')}`, 'SYSTEM');
     });
 
@@ -68,6 +155,8 @@ export class ProxyServer {
     // Start log streamer
     await this.logStreamer.start();
 
+    // Pre-warm proxy connections for faster first requests
+    await this.preWarmConnections();
 
     this.server = createServer((req, res) => {
       this.handleRequest(req, res);
@@ -94,6 +183,9 @@ export class ProxyServer {
   async stop(): Promise<void> {
     this.configManager.stopWatching();
     this.traceManager.cleanup();
+    
+    // Clean up proxy connections first
+    this.cleanupProxyConnections();
     
     if (this.server) {
       return new Promise((resolve, reject) => {
@@ -266,21 +358,14 @@ export class ProxyServer {
     
     return new Promise(async (resolve, reject) => {
       try {
-        const targetUrl = new URL(route.target);
-        
         // Log the final proxied path if it was changed
         if (this.config.global.tracing && originalUrl && finalUrl !== originalUrl) {
           const pathInfo = Colors.highlight()(`${originalUrl} → ${finalUrl}`);
           await this.logger.info(`Path rewritten: ${pathInfo}`, trace.id, trace.domain);
         }
         
-        const proxy = httpProxy.createProxyServer({
-          target: route.target,
-          changeOrigin: true,
-          secure: false, // Allow self-signed certificates
-          timeout: 30000,
-          xfwd: true, // Pass along original headers including x-forwarded-*
-        });
+        // Create proxy with connection-pooled agent
+        const proxy = this.createProxy(route.target);
 
         // Add trace ID and x-forwarded-host headers
         req.headers['x-trace-id'] = trace.id;
@@ -348,12 +433,44 @@ export class ProxyServer {
         proxy.on('error', async (error: any) => {
           this.traceManager.finishTrace(trace.id, 500, error.message);
           
-          await this.logger.error('Proxy error', trace.id, trace.domain, {
-            error: error.message,
-            target: route.target
-          });
+          // Handle connection resets gracefully
+          if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+            await this.logger.warn('Target server connection lost', trace.id, trace.domain, {
+              error: error.message,
+              target: route.target,
+              code: error.code
+            });
+          } else {
+            await this.logger.error('Proxy error', trace.id, trace.domain, {
+              error: error.message,
+              target: route.target,
+              code: error.code
+            });
+          }
           
-          reject(error);
+          // Send proper error response instead of crashing
+          if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: 'Bad Gateway',
+              message: 'Target server unavailable',
+              traceId: trace.id
+            }));
+          }
+          
+          resolve(); // Don't reject, we handled it
+        });
+
+        // Handle socket errors to prevent crashes
+        proxy.on('proxyReq', (proxyReq: any) => {
+          proxyReq.on('error', async (error: any) => {
+            if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+              await this.logger.warn('Connection error during request', trace.id, trace.domain, {
+                error: error.message,
+                code: error.code
+              });
+            }
+          });
         });
 
         proxy.web(req, res);
@@ -404,14 +521,8 @@ export class ProxyServer {
     }
 
     try {
-      const proxy = httpProxy.createProxyServer({
-        target: route.target,
-        ws: true,
-        changeOrigin: true,
-        secure: false,
-        timeout: 30000,
-        xfwd: true,
-      });
+      // Create WebSocket proxy with connection-pooled agent
+      const proxy = this.createProxy(route.target, true);
 
       // Add trace ID to headers
       req.headers['x-trace-id'] = trace.id;
@@ -419,10 +530,28 @@ export class ProxyServer {
 
       proxy.on('error', async (error: any) => {
         this.traceManager.finishTrace(trace.id, 500, error.message);
-        await this.logger.error('WebSocket proxy error', trace.id, domain, {
-          error: error.message,
-          target: route.target
-        });
+        
+        // Handle connection resets gracefully for WebSockets
+        if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+          await this.logger.warn('WebSocket target server connection lost', trace.id, domain, {
+            error: error.message,
+            target: route.target,
+            code: error.code
+          });
+        } else {
+          await this.logger.error('WebSocket proxy error', trace.id, domain, {
+            error: error.message,
+            target: route.target,
+            code: error.code
+          });
+        }
+        
+        // Gracefully close WebSocket instead of destroying
+        try {
+          socket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+        } catch (e) {
+          // Socket might already be closed
+        }
         socket.destroy();
       });
 
@@ -445,6 +574,23 @@ export class ProxyServer {
       });
       socket.destroy();
     }
+  }
+
+  private async preWarmConnections(): Promise<void> {
+    // Connection pooling is handled by HTTP agents, no pre-warming needed
+    if (this.config.global.logging === 'debug') {
+      await this.logger.info('HTTP agents initialized with connection pooling', 'SYSTEM');
+    }
+  }
+
+  private cleanupProxyConnections(): void {
+    if (this.config.global.logging === 'debug') {
+      this.logger.debug('Cleaning up HTTP agents', 'SYSTEM');
+    }
+    
+    // Destroy HTTP agents
+    this.httpAgent.destroy();
+    this.httpsAgent.destroy();
   }
 
   private async handleNotFound(req: IncomingMessage, res: ServerResponse, trace: any, domain: string): Promise<void> {

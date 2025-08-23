@@ -366,7 +366,7 @@ Press any key to close help...
     this.promptInput('Enter domain (e.g., api.local):', '', (domain) => {
       if (!domain) return;
       
-      this.promptInput('Enter target URL (e.g., http://localhost:3000):', '', (target) => {
+      this.promptInput('Enter target URL (e.g., http://127.0.0.1:3000):', '', (target) => {
         if (!target) return;
         
         this.promptInput('Enter path to match (optional):', '', (path) => {

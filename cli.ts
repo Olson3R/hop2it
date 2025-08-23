@@ -61,6 +61,29 @@ program
       const server = new ProxyServer(options.config, options.logFile);
       await server.start();
       
+      // Handle uncaught socket errors to prevent crashes
+      process.on('uncaughtException', (error: Error) => {
+        if (error.message.includes('ECONNRESET') || error.message.includes('ECONNREFUSED')) {
+          console.log(Colors.warning()(`Connection error handled: ${error.message}`));
+          return; // Don't crash for connection resets
+        }
+        
+        // For other errors, still crash but log properly
+        console.error('Uncaught exception:', error);
+        process.exit(1);
+      });
+
+      process.on('unhandledRejection', (reason: any) => {
+        if (reason?.code === 'ECONNRESET' || reason?.code === 'ECONNREFUSED') {
+          console.log(Colors.warning()(`Unhandled connection rejection: ${reason.message || reason}`));
+          return; // Don't crash for connection resets
+        }
+        
+        // For other rejections, still crash but log properly
+        console.error('Unhandled rejection:', reason);
+        process.exit(1);
+      });
+      
       // Handle graceful shutdown
       let isShuttingDown = false;
       const gracefulShutdown = async (signal: string) => {
@@ -92,7 +115,7 @@ program
   .command('add')
   .description('Add a new route')
   .argument('<domain>', 'Domain to route')
-  .argument('<target>', 'Target URL (e.g., http://localhost:3000)')
+  .argument('<target>', 'Target URL (e.g., http://127.0.0.1:3000)')
   .option('-l, --logging <level>', 'Logging level for this domain')
   .option('-p, --path <path>', 'Path pattern to match (e.g., /api)')
   .option('-r, --path-replace <replacement>', 'Path replacement (e.g., /v2 or "" for removal)')

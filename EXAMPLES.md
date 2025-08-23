@@ -14,10 +14,10 @@ npm install && npm run build
 hop2it start
 
 # 3. Add your first route
-hop2it add api.local http://localhost:3001
+hop2it add api.local http://127.0.0.1:3001
 
 # 4. Test the route
-curl -H "Host: api.local" http://localhost:8080/health
+curl -H "Host: api.local" http://127.0.0.1:8080/health
 ```
 
 ### Host File Configuration
@@ -44,23 +44,23 @@ Setting up a complete microservices development environment:
 hop2it start --log-file ./dev-logs/proxy.log --log-max-size 25 --log-max-files 10
 
 # Authentication service
-hop2it add auth.local http://localhost:3001 \
+hop2it add auth.local http://127.0.0.1:3001 \
   --logging debug \
   --log-request-headers \
   --log-response-body
 
 # User API service  
-hop2it add api.local http://localhost:3002 \
+hop2it add api.local http://127.0.0.1:3002 \
   --logging info \
   --log-request-body \
   --log-response-body
 
 # Frontend application
-hop2it add app.local http://localhost:3000 \
+hop2it add app.local http://127.0.0.1:3000 \
   --logging warn
 
 # Admin panel
-hop2it add admin.local http://localhost:3003 \
+hop2it add admin.local http://127.0.0.1:3003 \
   --logging info
 
 # View the complete setup
@@ -71,12 +71,12 @@ hop2it list
 ```
 Configured routes:
 ==================
-✓ auth.local → http://localhost:3001 (logging: debug)
+✓ auth.local → http://127.0.0.1:3001 (logging: debug)
     └─ Detailed logging: req-headers, res-body
-✓ api.local → http://localhost:3002 (logging: info)
+✓ api.local → http://127.0.0.1:3002 (logging: info)
     └─ Detailed logging: req-body, res-body
-✓ app.local → http://localhost:3000 (logging: warn)
-✓ admin.local → http://localhost:3003 (logging: info)
+✓ app.local → http://127.0.0.1:3000 (logging: warn)
+✓ admin.local → http://127.0.0.1:3003 (logging: info)
 ```
 
 ### Development with Hot Reloading
@@ -90,7 +90,7 @@ proxy-server logs --format pretty
 
 # Terminal 3: Work on your services
 # As you add new services, add routes dynamically:
-proxy-server add notifications.local http://localhost:3004 --logging debug
+proxy-server add notifications.local http://127.0.0.1:3004 --logging debug
 
 # The configuration will hot-reload automatically
 ```
@@ -101,7 +101,7 @@ proxy-server add notifications.local http://localhost:3004 --logging debug
 
 ```bash
 # Set up API route with maximum logging
-proxy-server add api.test http://localhost:8080 \
+proxy-server add api.test http://127.0.0.1:8080 \
   --log-request-headers \
   --log-request-body \
   --log-response-headers \
@@ -120,7 +120,7 @@ curl -X POST api.test:8080/users \
 
 **Log Output:**
 ```
-14:30:15.234 DEBUG [a1b2c3d4] [api.test] POST   /users → http://localhost:8080 201 78ms
+14:30:15.234 DEBUG [a1b2c3d4] [api.test] POST   /users → http://127.0.0.1:8080 201 78ms
 14:30:15.235 DEBUG [a1b2c3d4] [api.test] Request Headers:
   content-type: application/json
   authorization: Bearer test************
@@ -146,9 +146,9 @@ curl -X POST api.test:8080/users \
 
 ```bash
 # Set up routes for different API versions
-proxy-server add v1.api.local http://localhost:3001 --logging info
-proxy-server add v2.api.local http://localhost:3002 --logging info
-proxy-server add beta.api.local http://localhost:3003 --logging debug
+proxy-server add v1.api.local http://127.0.0.1:3001 --logging info
+proxy-server add v2.api.local http://127.0.0.1:3002 --logging info
+proxy-server add beta.api.local http://127.0.0.1:3003 --logging debug
 
 # Test version compatibility
 curl v1.api.local:8080/users/123
@@ -160,7 +160,7 @@ curl beta.api.local:8080/users/123
 
 ```bash
 # Configure for load testing with minimal logging
-proxy-server add load.api.local http://localhost:3001 --logging error
+proxy-server add load.api.local http://127.0.0.1:3001 --logging error
 
 # Start server with log rotation for continuous testing
 proxy-server start --log-file ./load-test.log --log-max-size 100 --log-max-files 50
@@ -178,7 +178,7 @@ proxy-server logs --domain load.api.local --level error
 python3 -m http.server 8001 &
 
 # Route requests to mock server
-proxy-server add mock.api.local http://localhost:8001 \
+proxy-server add mock.api.local http://127.0.0.1:8001 \
   --logging info \
   --log-request-headers \
   --log-response-body
@@ -194,11 +194,11 @@ curl mock.api.local:8080/
 # (Manual switching for testing)
 
 # Version A
-proxy-server add test.api.local http://localhost:3001 --logging info
+proxy-server add test.api.local http://127.0.0.1:3001 --logging info
 
 # Switch to version B for testing
 proxy-server remove test.api.local
-proxy-server add test.api.local http://localhost:3002 --logging info
+proxy-server add test.api.local http://127.0.0.1:3002 --logging info
 
 # Compare responses by tailing logs
 proxy-server tail ./proxy.log
@@ -210,7 +210,7 @@ proxy-server tail ./proxy.log
 
 ```bash
 # Set up comprehensive security logging
-proxy-server add secure.api.local http://localhost:3001 \
+proxy-server add secure.api.local http://127.0.0.1:3001 \
   --log-request-headers \
   --log-response-headers \
   --logging info
@@ -249,9 +249,9 @@ proxy-server start --log-file ./staging/proxy.log \
   --log-max-size 50 --log-max-files 20
 
 # Add staging services
-proxy-server add api.staging.local http://localhost:4000 --logging info
-proxy-server add auth.staging.local http://localhost:4001 --logging warn
-proxy-server add cdn.staging.local http://localhost:4002 --logging error
+proxy-server add api.staging.local http://127.0.0.1:4000 --logging info
+proxy-server add auth.staging.local http://127.0.0.1:4001 --logging warn
+proxy-server add cdn.staging.local http://127.0.0.1:4002 --logging error
 
 # Monitor staging traffic
 proxy-server logs --level info
@@ -261,7 +261,7 @@ proxy-server logs --level info
 
 ```bash
 # Set up for integration testing
-proxy-server add integration.api.local http://localhost:5000 \
+proxy-server add integration.api.local http://127.0.0.1:5000 \
   --log-request-body \
   --log-response-body \
   --logging debug
@@ -284,7 +284,7 @@ proxy-server config
 1. Navigate with arrow keys or `j`/`k`
 2. Press `a` to add a new route
 3. Enter domain: `new-service.local`
-4. Enter target: `http://localhost:3005`
+4. Enter target: `http://127.0.0.1:3005`
 5. Press `e` to edit the selected route
 6. Choose logging level and options
 7. Press `t` to toggle route on/off
@@ -379,19 +379,19 @@ curl auth.local:8080/health
 {
   "routes": {
     "app.local": {
-      "target": "http://localhost:3000",
+      "target": "http://127.0.0.1:3000",
       "logging": "info",
       "enabled": true
     },
     "api.local": {
-      "target": "http://localhost:3001", 
+      "target": "http://127.0.0.1:3001", 
       "logging": "debug",
       "enabled": true,
       "logRequestHeaders": true,
       "logResponseBody": true
     },
     "auth.local": {
-      "target": "http://localhost:3002",
+      "target": "http://127.0.0.1:3002",
       "logging": "warn",
       "enabled": true,
       "logRequestHeaders": true
@@ -413,12 +413,12 @@ curl auth.local:8080/health
 
 ```bash
 # Wildcard routing for dynamic services
-proxy-server add "*.service.local" http://localhost:8000 --logging info
+proxy-server add "*.service.local" http://127.0.0.1:8000 --logging info
 
 # Now any subdomain routes to the service discovery endpoint:
-# auth.service.local -> http://localhost:8000
-# users.service.local -> http://localhost:8000  
-# orders.service.local -> http://localhost:8000
+# auth.service.local -> http://127.0.0.1:8000
+# users.service.local -> http://127.0.0.1:8000  
+# orders.service.local -> http://127.0.0.1:8000
 ```
 
 ## 🎯 Troubleshooting Examples
@@ -433,7 +433,7 @@ proxy-server set-logging debug
 proxy-server logs --level error | grep "ECONNREFUSED"
 
 # Test direct connection
-curl http://localhost:3001/health  # Direct to service
+curl http://127.0.0.1:3001/health  # Direct to service
 curl api.local:8080/health         # Through proxy
 ```
 

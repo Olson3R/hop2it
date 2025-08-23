@@ -56,7 +56,7 @@ npm install -g .
 hop2it start
 
 # Add a route
-hop2it add api.local http://localhost:3001
+hop2it add api.local http://127.0.0.1:3001
 
 # List all routes
 hop2it list
@@ -93,20 +93,20 @@ hop2it start --config ./my-config.json
 
 ```bash
 # Add a basic route
-hop2it add api.local http://localhost:3001
+hop2it add api.local http://127.0.0.1:3001
 
 # Add route with path matching and replacement
-hop2it add "*.dev.local" http://localhost:4000 \
+hop2it add "*.dev.local" http://127.0.0.1:4000 \
   --path "/api" \
   --path-replace "/v2"
 
 # Add route with path removal (strip /api prefix)
-hop2it add api.local http://localhost:3001 \
+hop2it add api.local http://127.0.0.1:3001 \
   --path "/api" \
   --path-replace ""
 
 # Add route with detailed logging
-hop2it add api.local http://localhost:3001 \
+hop2it add api.local http://127.0.0.1:3001 \
   --log-request-headers \
   --log-request-body \
   --log-response-headers \
@@ -165,7 +165,7 @@ The configuration is stored in `~/.hop2it/proxy-config.json` and controls all se
 {
   "routes": {
     "api.local": {
-      "target": "http://localhost:3001",
+      "target": "http://127.0.0.1:3001",
       "logging": "debug",
       "enabled": true,
       "logRequestHeaders": true,
@@ -174,18 +174,18 @@ The configuration is stored in `~/.hop2it/proxy-config.json` and controls all se
       "logResponseBody": false
     },
     "app.local": {
-      "target": "http://localhost:3000",
+      "target": "http://127.0.0.1:3000",
       "logging": "info",
       "enabled": true
     },
     "*.dev.local:/api": {
-      "target": "http://localhost:8000",
+      "target": "http://127.0.0.1:8000",
       "pathReplace": "/v2",
       "logging": "warn",
       "enabled": true
     },
     "*.dev.local": {
-      "target": "http://localhost:3000",
+      "target": "http://127.0.0.1:3000",
       "logging": "info",
       "enabled": true
     }
@@ -252,15 +252,15 @@ hop2it supports sophisticated path-based routing with URL rewriting:
 {
   "routes": {
     "domain.com:/api": {  // Exact domain + path
-      "target": "http://localhost:4000",
+      "target": "http://127.0.0.1:4000",
       "pathReplace": "/v2"  // /api/users becomes /v2/users
     },
     "*.dev.local:/api": { // Wildcard domain + path
-      "target": "http://localhost:3000",
+      "target": "http://127.0.0.1:3000",
       "pathReplace": ""      // /api/users becomes /users (path removal)
     },
     "*.dev.local": {      // Catch-all for other paths
-      "target": "http://localhost:8000"
+      "target": "http://127.0.0.1:8000"
     }
   }
 }
@@ -303,7 +303,7 @@ hop2it provides full WebSocket proxying with the same routing and path replaceme
 
 **WebSocket Log Output:**
 ```
-🔌 WebSocket /api/ws → http://localhost:4002
+🔌 WebSocket /api/ws → http://127.0.0.1:4002
 WebSocket path rewritten: /api/ws → /ws
 WebSocket connection established
 WebSocket connection closed
@@ -315,9 +315,9 @@ WebSocket connection closed
 
 ```bash
 # Set up routes for different services
-hop2it add auth.local http://localhost:3001 --logging debug
-hop2it add api.local http://localhost:3002 --logging info
-hop2it add frontend.local http://localhost:3000 --logging warn
+hop2it add auth.local http://127.0.0.1:3001 --logging debug
+hop2it add api.local http://127.0.0.1:3002 --logging info
+hop2it add frontend.local http://127.0.0.1:3000 --logging warn
 
 # Start with detailed logging
 hop2it start --log-file ./dev.log
@@ -330,7 +330,7 @@ hop2it logs --format pretty
 
 ```bash
 # Add API route with full request/response logging
-hop2it add api.test http://localhost:8080 \
+hop2it add api.test http://127.0.0.1:8080 \
   --log-request-headers \
   --log-request-body \
   --log-response-headers \
@@ -349,24 +349,24 @@ hop2it start --log-file ./integration.log \
   --log-max-size 100 --log-max-files 20
 
 # Add production-like routes
-hop2it add api.staging http://localhost:4000 --logging info
-hop2it add cdn.staging http://localhost:4001 --logging warn
+hop2it add api.staging http://127.0.0.1:4000 --logging info
+hop2it add cdn.staging http://127.0.0.1:4001 --logging warn
 ```
 
 ## 🎨 Log Output Examples
 
 ### Basic Request Logging
 ```
-14:30:15.234 INFO  [a1b2c3d4] [api.local] GET    /users → http://localhost:3001 200 45ms
+14:30:15.234 INFO  [a1b2c3d4] [api.local] GET    /users → http://127.0.0.1:3001 200 45ms
 14:30:15.235 INFO  [a1b2c3d4] [api.local] Path rewritten: /api/users → /users
-14:30:16.891 INFO  [b2c3d4e5] [app.local] POST   /login → http://localhost:3000 401 12ms
+14:30:16.891 INFO  [b2c3d4e5] [app.local] POST   /login → http://127.0.0.1:3000 401 12ms
 14:30:17.456 WARN  [c3d4e5f6] [unknown] No route found: GET    /favicon.ico
-🔌 14:30:18.123 INFO  [d4e5f6g7] [ws.local] WebSocket /api/stream → http://localhost:4000
+🔌 14:30:18.123 INFO  [d4e5f6g7] [ws.local] WebSocket /api/stream → http://127.0.0.1:4000
 ```
 
 ### Detailed Request/Response Logging
 ```
-14:30:15.234 INFO  [a1b2c3d4] [api.local] POST   /users → http://localhost:3001 201 78ms
+14:30:15.234 INFO  [a1b2c3d4] [api.local] POST   /users → http://127.0.0.1:3001 201 78ms
 14:30:15.235 INFO  [a1b2c3d4] [api.local] Request Headers:
   content-type: application/json
   authorization: Bearer eyJ0******************...+87
